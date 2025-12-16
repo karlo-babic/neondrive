@@ -43,16 +43,17 @@ const botInput = document.getElementById('botInput');
 
 // --- MENU HANDLERS ---
 
-// Clear map input on click/focus for easier typing
-// Wrapped in setTimeout to prevent conflicting with mobile browser focus/keyboard logic
-mapInput.addEventListener('focus', () => {
-    setTimeout(() => {
-        mapInput.value = '';
-    }, 10);
+// Using 'click' ensures that if the user taps it, it clears.
+// This works better with mobile datalist triggers than 'focus'.
+mapInput.addEventListener('click', function() {
+    this.value = '';
 });
 
 startBtn.addEventListener('click', () => {
-    const map = mapInput.value.trim() || 'maps/pula.json';
+    // Check value, if empty use the placeholder/default
+    let map = mapInput.value.trim();
+    if (!map) map = 'maps/pula.json';
+
     const count = parseInt(botInput.value) || 0;
     
     menu.style.display = 'none';
@@ -148,7 +149,7 @@ function loop(currentTime) {
     });
 
     // 2. Camera Logic
-    const targetZoom = player ? 3.0 / (1 + (player.speed * 0.3)) : 1;
+    const targetZoom = player ? 3.0 / (1 + (player.speed * 0.1)) : 1;
     cameraZoom = Utils.lerp(cameraZoom, targetZoom, 0.05);
 
     // 3. Render Phase
@@ -332,7 +333,7 @@ function drawMinimap(entities) {
         
         ctx.beginPath();
         ctx.strokeStyle = e.color;
-        ctx.lineWidth = 60;
+        ctx.lineWidth = 60; 
         
         if (e.trail.length > 0) {
             ctx.moveTo(e.trail[0].x, e.trail[0].y);

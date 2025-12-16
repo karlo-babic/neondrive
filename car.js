@@ -154,7 +154,7 @@ class Car {
 
         // 1. HEAD-ON COLLISION CHECK (Body to Body)
         // Distance threshold ~10 (Car is drawn as 10px long)
-        if (!otherCar.crashed && Utils.dist({x: this.x, y: this.y}, {x: otherCar.x, y: otherCar.y}) < 12) {
+        if (!otherCar.crashed && Utils.dist({x: this.x, y: this.y}, {x: otherCar.x, y: otherCar.y}) < 10) {
             this.crashed = true;
             this.crashReason = "HEAD-ON COLLISION";
             

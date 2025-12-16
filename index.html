@@ -58,12 +58,13 @@
             width: 300px;
             outline: none;
             box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+            border-radius: 0; /* Fix iOS rounded corners */
+            -webkit-appearance: none; /* Fix iOS rendering */
         }
 
-        /* Style for datalist dropdown arrow in some browsers */
-        input::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
+        /* Ensure text is visible */
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         button {
@@ -99,7 +100,7 @@
         
         <div class="control-group">
             <label>SELECT MAP</label>
-            <input list="map-options" id="mapInput" value="maps/rijeka.json" placeholder="Type map path..." autocomplete="off">
+            <input list="map-options" id="mapInput" type="text" placeholder="maps/pula.json">
             <datalist id="map-options">
                 <option value="maps/pula.json"></option>
                 <option value="maps/rijeka.json"></option>
