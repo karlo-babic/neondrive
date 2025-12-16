@@ -242,6 +242,8 @@ function loop(currentTime) {
     drawMinimap(entities);
 
     if (player) {
+        drawStreetName();
+
         if (player.crashed) {
             ctx.fillStyle = "rgba(0,0,0,0.7)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -265,6 +267,25 @@ function loop(currentTime) {
             ctx.fillStyle = "#00f3ff";
             ctx.textAlign = "right";
             ctx.fillText(`${Math.floor(smoothSpeedKmh)} KM/H`, canvas.width - 20, canvas.height - 20);
+        }
+    }
+}
+
+function drawStreetName() {
+    if (!player || player.crashed) return;
+
+    const currentRoad = network.getClosestRoad({ x: player.x, y: player.y });
+    if (currentRoad && currentRoad.properties) {
+        // Try 'name', but fall back to 'ref' (like for road numbers)
+        const streetName = currentRoad.properties.name || currentRoad.properties.ref;
+        if (streetName) {
+            ctx.font = "bold 24px Courier New";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+            ctx.shadowBlur = 5;
+            ctx.fillText(streetName, canvas.width / 2, 40);
+            ctx.shadowBlur = 0;
         }
     }
 }
