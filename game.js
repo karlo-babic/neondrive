@@ -32,7 +32,7 @@ let accumulatedTime = 0;
 let smoothSpeedKmh = 0;
 
 // Session Settings
-let currentMapUrl = 'maps/map.json';
+let currentMapUrl = 'maps/pula.json';
 let currentBotCount = 10;
 
 // UI Elements
@@ -43,17 +43,20 @@ const botInput = document.getElementById('botInput');
 
 // --- MENU HANDLERS ---
 
+// Clear map input on click/focus for easier typing
+// Wrapped in setTimeout to prevent conflicting with mobile browser focus/keyboard logic
+mapInput.addEventListener('focus', () => {
+    setTimeout(() => {
+        mapInput.value = '';
+    }, 10);
+});
+
 startBtn.addEventListener('click', () => {
-    const map = mapInput.value.trim() || 'maps/rijeka.json';
+    const map = mapInput.value.trim() || 'maps/pula.json';
     const count = parseInt(botInput.value) || 0;
     
     menu.style.display = 'none';
     initGame(map, count);
-});
-
-// Clear map input on click/focus
-mapInput.addEventListener('focus', () => {
-    mapInput.value = '';
 });
 
 // Escape key to return to Main Menu
@@ -117,27 +120,17 @@ function stopGame() {
 }
 
 function loop(currentTime) {
-    // Always request the next frame immediately to keep the loop alive
     animationFrameId = requestAnimationFrame(loop);
 
     if (!isGameRunning) return;
 
-    // Calculate time since last frame
     const deltaTime = currentTime - lastTime;
 
-    // FPS THROTTLING:
-    // If not enough time has passed for the next frame (based on 60 FPS), skip this cycle.
     if (deltaTime < FRAME_MIN_TIME) {
         return;
     }
 
-    // Adjust lastTime to be the scheduled time of this frame, 
-    // rather than currentTime, to deal with slight variations (jitter)
-    // and keep the average FPS closer to target.
     lastTime = currentTime - (deltaTime % FRAME_MIN_TIME);
-
-    // Convert to seconds for physics calculations
-    // We cap deltaTime to prevent huge jumps if the tab was inactive
     const dtSeconds = Math.min(deltaTime / 1000, 0.1); 
 
     // 1. Update Phase
@@ -271,7 +264,6 @@ function loop(currentTime) {
             ctx.font = "16px Courier New";
             ctx.fillText("TAP OR CLICK TO RESTART", canvas.width/2, canvas.height/2 + 80);
         } else {
-            // Speed Calculation using raw FPS limit as baseline (60)
             const fps = 60;
             const currentRealSpeed = player.speed * fps * 3.6; 
             smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, currentRealSpeed, 0.1);
@@ -340,7 +332,7 @@ function drawMinimap(entities) {
         
         ctx.beginPath();
         ctx.strokeStyle = e.color;
-        ctx.lineWidth = 80; 
+        ctx.lineWidth = 60;
         
         if (e.trail.length > 0) {
             ctx.moveTo(e.trail[0].x, e.trail[0].y);
@@ -350,17 +342,15 @@ function drawMinimap(entities) {
         ctx.stroke();
 
         if (e === player) {
-            // Player Dot: White Center
             ctx.fillStyle = "#fff";
             ctx.beginPath();
-            ctx.arc(e.x, e.y, 150, 0, Math.PI * 2); 
+            ctx.arc(e.x, e.y, 80, 0, Math.PI * 2); 
             ctx.fill();
 
-            // Player Halo: Cyan Outline
             ctx.strokeStyle = "#00f3ff";
-            ctx.lineWidth = 20;
+            ctx.lineWidth = 100;
             ctx.beginPath();
-            ctx.arc(e.x, e.y, 200, 0, Math.PI * 2);
+            ctx.arc(e.x, e.y, 150, 0, Math.PI * 2);
             ctx.stroke();
         }
     });
