@@ -43,10 +43,13 @@ const botInput = document.getElementById('botInput');
 
 // --- MENU HANDLERS ---
 
-// Using 'click' ensures that if the user taps it, it clears.
-// This works better with mobile datalist triggers than 'focus'.
-mapInput.addEventListener('click', function() {
+// Clear map input on focus.
+// We also manually dispatch an 'input' event to force the browser
+// to refresh the datalist dropdown immediately (fixing the double-click issue).
+mapInput.addEventListener('focus', function() {
     this.value = '';
+    const event = new Event('input', { bubbles: true });
+    this.dispatchEvent(event);
 });
 
 startBtn.addEventListener('click', () => {
@@ -149,7 +152,7 @@ function loop(currentTime) {
     });
 
     // 2. Camera Logic
-    const targetZoom = player ? 3.0 / (1 + (player.speed * 0.1)) : 1;
+    const targetZoom = player ? 3.0 / (1 + (player.speed * 0.3)) : 1;
     cameraZoom = Utils.lerp(cameraZoom, targetZoom, 0.05);
 
     // 3. Render Phase
