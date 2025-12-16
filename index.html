@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Drive</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0d0221;
+            font-family: 'Courier New', Courier, monospace;
+            color: #fff;
+        }
+        canvas { display: block; }
+
+        /* Menu Overlay Styles */
+        #menu {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(13, 2, 33, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 4rem;
+            text-shadow: 0 0 20px #ff003c, 4px 4px 0px #00f3ff;
+            margin-bottom: 40px;
+            letter-spacing: 5px;
+            text-align: center;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            color: #00f3ff;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 5px #00f3ff;
+        }
+
+        input {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #00f3ff;
+            color: #fff;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 1.2rem;
+            text-align: center;
+            width: 300px;
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        /* Style for datalist dropdown arrow in some browsers */
+        input::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        button {
+            margin-top: 30px;
+            background: transparent;
+            border: 2px solid #ff003c;
+            color: #ff003c;
+            padding: 15px 40px;
+            font-family: inherit;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-shadow: 0 0 5px #ff003c;
+            box-shadow: 0 0 10px rgba(255, 0, 60, 0.2);
+        }
+
+        button:hover {
+            background: #ff003c;
+            color: #fff;
+            box-shadow: 0 0 30px #ff003c;
+            text-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Main Menu -->
+    <div id="menu">
+        <h1>NEON DRIVE</h1>
+        
+        <div class="control-group">
+            <label>SELECT MAP</label>
+            <input list="map-options" id="mapInput" value="maps/rijeka.json" placeholder="Type map path...">
+            <datalist id="map-options">
+                <option value="maps/pula.json"></option>
+                <option value="maps/rijeka.json"></option>
+                <option value="maps/ljubljana.json"></option>
+            </datalist>
+        </div>
+
+        <div class="control-group">
+            <label>NUMBER OF BOTS</label>
+            <input type="number" id="botInput" value="20" min="0" max="100">
+        </div>
+
+        <button id="startBtn">START ENGINE</button>
+    </div>
+
+    <!-- Load scripts in dependency order -->
+    <script src="utils.js"></script>
+    <script src="input.js"></script>
+    <script src="roadNetwork.js"></script>
+    <script src="car.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
