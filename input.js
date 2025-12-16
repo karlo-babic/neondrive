@@ -8,6 +8,9 @@ class InputHandler {
         this.accelerating = false;
         this.braking = false;
         
+        // Reference to canvas to distinguish between game touches and UI touches
+        const canvas = document.getElementById('gameCanvas');
+
         // --- MOUSE CONTROLS ---
         document.addEventListener('mousemove', e => {
             this.updateAngle(e.clientX, e.clientY);
@@ -37,7 +40,12 @@ class InputHandler {
 
         // --- TOUCH CONTROLS (Mobile) ---
         const handleTouch = (e) => {
-            // Prevent default browser scrolling/zooming
+            // Allow interaction with Menu UI (Inputs/Buttons)
+            // If the user touches the Menu or HTML inputs, ignore game logic 
+            // and do NOT prevent default behavior.
+            if (e.target !== canvas) return;
+
+            // Prevent default browser scrolling/zooming ONLY when touching canvas
             if(e.cancelable) e.preventDefault();
             
             if (e.touches.length > 0) {
