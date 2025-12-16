@@ -47,7 +47,7 @@
             text-shadow: 0 0 5px #00f3ff;
         }
 
-        input {
+        input, select {
             background: rgba(0, 0, 0, 0.5);
             border: 2px solid #00f3ff;
             color: #fff;
@@ -55,11 +55,29 @@
             font-family: inherit;
             font-size: 1.2rem;
             text-align: center;
-            width: 300px;
+            width: 344px;
+            max-width: 90vw;
+            box-sizing: border-box;
             outline: none;
             box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
-            border-radius: 0; /* Fix iOS rounded corners */
-            -webkit-appearance: none; /* Fix iOS rendering */
+            border-radius: 0;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        select {
+            text-align-last: center;
+            /* Custom dropdown arrow for a consistent look that works on mobile */
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2300F3FF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-13%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2013l128%20127.9c3.6%203.6%207.8%205.4%2013%205.4s9.4-1.8%2013-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-13%200-5-1.9-9.4-5.4-13z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 0.65em auto;
+            padding-right: 3rem; /* Make room for arrow */
+        }
+
+        select option {
+            background-color: #0d0221;
         }
 
         /* Ensure text is visible */
@@ -100,12 +118,11 @@
         
         <div class="control-group">
             <label>SELECT MAP</label>
-            <input list="map-options" id="mapInput" type="text" placeholder="maps/pula.json">
-            <datalist id="map-options">
-                <option value="maps/pula.json"></option>
-                <option value="maps/rijeka.json"></option>
-                <option value="maps/ljubljana.json"></option>
-            </datalist>
+            <select id="mapInput">
+                <option value="maps/pula.json">Pula</option>
+                <option value="maps/rijeka.json">Rijeka</option>
+                <option value="maps/ljubljana.json">Ljubljana</option>
+            </select>
         </div>
 
         <div class="control-group">

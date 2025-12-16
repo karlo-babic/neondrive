@@ -43,20 +43,9 @@ const botInput = document.getElementById('botInput');
 
 // --- MENU HANDLERS ---
 
-// Clear map input on focus.
-// We also manually dispatch an 'input' event to force the browser
-// to refresh the datalist dropdown immediately (fixing the double-click issue).
-mapInput.addEventListener('focus', function() {
-    this.value = '';
-    const event = new Event('input', { bubbles: true });
-    this.dispatchEvent(event);
-});
-
 startBtn.addEventListener('click', () => {
-    // Check value, if empty use the placeholder/default
-    let map = mapInput.value.trim();
-    if (!map) map = 'maps/pula.json';
-
+    // Read values from the form controls
+    const map = mapInput.value;
     const count = parseInt(botInput.value) || 0;
     
     menu.style.display = 'none';
