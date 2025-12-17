@@ -116,11 +116,84 @@ class Car {
         let candidates = intersection.outgoing.filter(r => r.id !== this.currentRoad.reverseId);
         if (candidates.length === 0) candidates = intersection.outgoing;
 
-        let bestRoad = null;
+        let bestRoad = candidates[0];
 
         if (this.isBot) {
-            // BOT AI: Pick random valid road
-            bestRoad = candidates[Math.floor(Math.random() * candidates.length)];
+            // --- BOT AI: WEIGHTED DECISION MAKING ---
+            
+            const sensorData = input || {};
+            const player = sensorData.player;
+            const otherBots = sensorData.bots;
+
+            // 1. ATTRACTION: Turn towards Player
+            let attractionAngle = 0;
+            let hasAttraction = false;
+            
+            if (player && !player.crashed) {
+                attractionAngle = Utils.angleTo(this, player);
+                hasAttraction = true;
+            }
+
+            // 2. REPULSION: Turn away from closest Bot (if too close)
+            let repulsionAngle = 0;
+            let repulsionStrength = 0; // 0.0 to 1.0
+            const detectionRadius = 300; 
+
+            if (otherBots) {
+                let closestDist = Infinity;
+                let closestBot = null;
+
+                for (const b of otherBots) {
+                    if (b === this) continue;
+                    // Euclidean check against car body only
+                    const d = Utils.dist({x: this.x, y: this.y}, {x: b.x, y: b.y});
+                    if (d < closestDist) {
+                        closestDist = d;
+                        closestBot = b;
+                    }
+                }
+
+                if (closestBot && closestDist < detectionRadius) {
+                    // Vector pointing AWAY from the neighbor
+                    repulsionAngle = Utils.angleTo(closestBot, this);
+                    repulsionStrength = 1 - (closestDist / detectionRadius);
+                }
+            }
+
+            // 3. CALCULATE WEIGHTS
+            let totalWeight = 0;
+            const weightedOptions = candidates.map(road => {
+                let weight = 1; // Base weight ensures randomness exists
+
+                // Score Attraction (0 to 1 based on alignment)
+                if (hasAttraction) {
+                    const diff = Math.abs(Utils.angleDiff(road.startAngle, attractionAngle));
+                    const score = 1 - (diff / Math.PI); 
+                    weight += score * 10; // Attraction Multiplier
+                }
+
+                // Score Repulsion (0 to 1 based on alignment)
+                if (repulsionStrength > 0) {
+                    const diff = Math.abs(Utils.angleDiff(road.startAngle, repulsionAngle));
+                    const score = 1 - (diff / Math.PI);
+                    // Stronger multiplier based on how close the neighbor is
+                    weight += score * 50 * repulsionStrength; 
+                }
+
+                totalWeight += weight;
+                return { road, weight };
+            });
+
+            // 4. STOCHASTIC SELECTION
+            let randomValue = Math.random() * totalWeight;
+            for (const option of weightedOptions) {
+                randomValue -= option.weight;
+                if (randomValue <= 0) {
+                    bestRoad = option.road;
+                    break;
+                }
+            }
+
         } else {
             // PLAYER: Pick based on mouse angle
             let minAngleDiff = Infinity;
@@ -163,8 +236,10 @@ class Car {
             otherCar.crashReason = "HEAD-ON COLLISION";
 
             // If bots are involved, respawn them
-            if (this.isBot) this.spawn();
-            if (otherCar.isBot) otherCar.spawn();
+            if (this.isBot && otherCar.isBot) {
+                this.spawn();
+                otherCar.spawn();
+            }
             
             return;
         }
@@ -185,8 +260,8 @@ class Car {
                 this.crashed = true;
                 this.crashReason = "TRACE COLLISION";
                 
-                // If a bot crashes, respawn it instantly elsewhere
-                if (this.isBot) {
+                // If a bot crashes, respawn ONLY if hitting another bot. If hitting the player, stay dead (do not call spawn)
+                if (this.isBot && otherCar.isBot) {
                     this.spawn();
                 }
                 return;

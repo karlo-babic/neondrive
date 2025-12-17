@@ -133,12 +133,17 @@ function loop(currentTime) {
     }
 
     bots.forEach(bot => {
-        bot.update(null); 
+        // Pass game state (Player and Bot list) to the bot for AI decisions
+        bot.update({ player, bots }); 
+        
         if (player && !player.crashed) bot.checkCollision(player);
         bots.forEach(otherBot => {
             if (bot !== otherBot) bot.checkCollision(otherBot);
         });
     });
+
+    // Remove bots that crashed without respawning (e.g. hit player trail)
+    bots = bots.filter(bot => !bot.crashed);
 
     // 2. Camera Logic
     const targetZoom = player ? 3.0 / (1 + (player.speed * 0.3)) : 1;
@@ -240,6 +245,7 @@ function loop(currentTime) {
 
     // 4. UI / HUD
     drawMinimap(entities);
+    drawBotCount();
 
     if (player) {
         drawStreetName();
@@ -276,18 +282,27 @@ function drawStreetName() {
 
     const currentRoad = network.getClosestRoad({ x: player.x, y: player.y });
     if (currentRoad && currentRoad.properties) {
-        // Try 'name', but fall back to 'ref' (like for road numbers)
         const streetName = currentRoad.properties.name || currentRoad.properties.ref;
         if (streetName) {
             ctx.font = "bold 24px Courier New";
             ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-            ctx.textAlign = "center";
+            ctx.textAlign = "left";
             ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
             ctx.shadowBlur = 5;
-            ctx.fillText(streetName, canvas.width / 2, 40);
+            ctx.fillText(streetName, 20, 40);
             ctx.shadowBlur = 0;
         }
     }
+}
+
+function drawBotCount() {
+    ctx.font = "bold 24px Courier New";
+    ctx.fillStyle = "#ff003c";
+    ctx.textAlign = "right";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+    ctx.shadowBlur = 5;
+    ctx.fillText("BOTS: " + bots.length, canvas.width - 20, 40);
+    ctx.shadowBlur = 0;
 }
 
 function drawMinimap(entities) {
