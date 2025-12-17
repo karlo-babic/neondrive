@@ -310,7 +310,8 @@ function drawBotCount() {
     ctx.textAlign = "right";
     ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
     ctx.shadowBlur = 5;
-    ctx.fillText("BOTS: " + bots.length, canvas.width - 20, 40);
+    const aliveCount = bots.filter(b => !b.crashed).length;
+    ctx.fillText("BOTS: " + aliveCount, canvas.width - 20, 40);
     ctx.shadowBlur = 0;
 }
 

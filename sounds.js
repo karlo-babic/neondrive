@@ -109,7 +109,7 @@ class SoundController {
      */
     updateEngineSound(engine, speedRatio, volumeScale, t) {
         // Pitch mapping: 0 speed -> 10Hz
-        const targetFreq = 10 + (speedRatio * 600);
+        const targetFreq = 10 + (speedRatio * 666) + Math.random()*20;
         
         engine.osc1.frequency.setTargetAtTime(targetFreq, t, 0.1);
         engine.osc2.frequency.setTargetAtTime(targetFreq * 2.02, t, 0.1);
