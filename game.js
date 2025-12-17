@@ -150,7 +150,7 @@ function loop(currentTime) {
     cameraZoom = Utils.lerp(cameraZoom, targetZoom, 0.05);
 
     // 3. Render Phase
-    ctx.fillStyle = "#0d0221";
+    ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
@@ -217,15 +217,15 @@ function loop(currentTime) {
     });
 
     if (player && !player.crashed) {
-        const length = 50;
-        const ex = player.x + Math.cos(input.mouseAngle) * length;
-        const ey = player.y + Math.sin(input.mouseAngle) * length;
+        const length = 100;
+        const ex = player.x + Math.cos(input.mouseAngle) * length / cameraZoom;
+        const ey = player.y + Math.sin(input.mouseAngle) * length / cameraZoom;
         const grad = ctx.createLinearGradient(player.x, player.y, ex, ey);
-        grad.addColorStop(0, "rgba(255, 0, 60, 0)");
-        grad.addColorStop(1, "rgba(255, 0, 60, 1)");
+        grad.addColorStop(0, "rgba(255, 215, 0, 0)");
+        grad.addColorStop(1, "rgba(255, 215, 0, 0.6)");
         ctx.beginPath();
         ctx.strokeStyle = grad;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 10 / cameraZoom;
         ctx.moveTo(player.x, player.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
@@ -277,7 +277,7 @@ function drawMinimap(entities) {
     // Create circular clip area
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4";
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 2;
@@ -316,7 +316,7 @@ function drawStreetName() {
     if (road && road.properties) {
         const name = road.properties.name || road.properties.ref;
         if (name) {
-            ctx.font = "bold 22px Courier New";
+            ctx.font = "bold 20px Courier New";
             ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
             ctx.textAlign = "left";
             ctx.fillText(name, 20, 40);
