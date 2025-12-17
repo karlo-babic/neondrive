@@ -6,7 +6,6 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Resize listener
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -16,44 +15,32 @@ const network = new RoadNetwork();
 const input = new InputHandler();
 const sound = new SoundController();
 
-// Game State
 let player = null;
 let bots = [];
 let cameraZoom = 1;
 let isGameRunning = false;
 let animationFrameId = null; 
-
-// Performance / FPS Capping
 let lastTime = 0;
 const FPS_LIMIT = 60;
-const FRAME_MIN_TIME = 1000 / FPS_LIMIT; // ~16.67ms
-let accumulatedTime = 0;
-
-// HUD Smoothing
+const FRAME_MIN_TIME = 1000 / FPS_LIMIT;
 let smoothSpeedKmh = 0;
+let mapBounds = null;
 
-// Session Settings
 let currentMapUrl = 'maps/pula.json';
-let currentBotCount = 10;
+let currentBotCount = 0;
 
-// UI Elements
 const menu = document.getElementById('menu');
 const startBtn = document.getElementById('startBtn');
 const mapInput = document.getElementById('mapInput');
 const botInput = document.getElementById('botInput');
 
-// --- MENU HANDLERS ---
-
 startBtn.addEventListener('click', () => {
-    // Read values from the form controls
     const map = mapInput.value;
     const count = parseInt(botInput.value) || 0;
-    
     menu.style.display = 'none';
     initGame(map, count);
 });
 
-// Escape key to return to Main Menu
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && isGameRunning) {
         stopGame();
@@ -67,8 +54,11 @@ const handleRestart = (e) => {
 
     if (player && player.crashed) {
         player = new Car(network, false);
+        const playerPos = { x: player.x, y: player.y };
         bots = [];
-        for(let i=0; i<currentBotCount; i++) bots.push(new Car(network, true));
+        for (let i = 0; i < currentBotCount; i++) {
+            bots.push(new Car(network, true, playerPos));
+        }
         smoothSpeedKmh = 0;
     }
 };
@@ -76,12 +66,8 @@ const handleRestart = (e) => {
 canvas.addEventListener('mousedown', handleRestart);
 canvas.addEventListener('touchstart', handleRestart);
 
-// --- GAME LOGIC ---
-
 async function initGame(mapUrl, botCount) {
     stopGame();
-
-    // Initialize Audio Context on user gesture (Start Button click)
     await sound.init();
 
     currentMapUrl = mapUrl;
@@ -90,17 +76,31 @@ async function initGame(mapUrl, botCount) {
     
     try {
         await network.load(currentMapUrl);
+        
+        // Calculate map boundaries based on all road points
+        mapBounds = network.roads.reduce((acc, road) => {
+            road.points.forEach(p => {
+                if (p.x < acc.minX) acc.minX = p.x;
+                if (p.x > acc.maxX) acc.maxX = p.x;
+                if (p.y < acc.minY) acc.minY = p.y;
+                if (p.y > acc.maxY) acc.maxY = p.y;
+            });
+            return acc;
+        }, { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+        
     } catch (err) {
         console.error(err);
-        alert("Failed to load map: " + currentMapUrl + "\nCheck if file exists in 'maps/' folder.");
+        alert("Failed to load map.");
         menu.style.display = 'flex';
         return;
     }
 
     player = new Car(network, false);
+    const playerPos = { x: player.x, y: player.y };
+    
     bots = [];
-    for(let i=0; i<currentBotCount; i++) {
-        bots.push(new Car(network, true));
+    for (let i = 0; i < currentBotCount; i++) {
+        bots.push(new Car(network, true, playerPos));
     }
 
     isGameRunning = true;
@@ -118,41 +118,32 @@ function stopGame() {
 
 function loop(currentTime) {
     animationFrameId = requestAnimationFrame(loop);
-
     if (!isGameRunning) return;
 
     const deltaTime = currentTime - lastTime;
-
-    if (deltaTime < FRAME_MIN_TIME) {
-        return;
-    }
+    if (deltaTime < FRAME_MIN_TIME) return;
 
     lastTime = currentTime - (deltaTime % FRAME_MIN_TIME);
-    const dtSeconds = Math.min(deltaTime / 1000, 0.1); 
+    
+    const playerPos = player ? { x: player.x, y: player.y } : null;
 
     // 1. Update Phase
     if (player) {
         player.update(input);
-        bots.forEach(bot => player.checkCollision(bot));
+        bots.forEach(bot => player.checkCollision(bot, playerPos));
     }
 
     bots.forEach(bot => {
-        // Pass game state (Player and Bot list) to the bot for AI decisions
         bot.update({ player, bots }); 
-        
-        if (player && !player.crashed) bot.checkCollision(player);
+        if (player && !player.crashed) bot.checkCollision(player, playerPos);
         bots.forEach(otherBot => {
-            if (bot !== otherBot) bot.checkCollision(otherBot);
+            if (bot !== otherBot) bot.checkCollision(otherBot, playerPos);
         });
     });
 
-    // Remove bots that crashed without respawning (e.g. hit player trail)
     bots = bots.filter(bot => !bot.crashed);
 
-    // AUDIO UPDATE
-    if (player) {
-        sound.update(player, bots);
-    }
+    if (player) sound.update(player, bots);
 
     // 2. Camera Logic
     const targetZoom = player ? 3.0 / (1 + (player.speed * 0.3)) : 1;
@@ -163,7 +154,6 @@ function loop(currentTime) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
-    
     let camX = 0, camY = 0;
     if (player) {
         camX = player.x;
@@ -173,37 +163,39 @@ function loop(currentTime) {
         ctx.translate(-player.x, -player.y);
     }
 
-    // DRAW MAP (OPTIMIZED)
+    // DRAW MAP BOUNDARIES
+    if (mapBounds) {
+        ctx.strokeStyle = "#ff003c";
+        ctx.lineWidth = 10 / cameraZoom; // Keep line width consistent visually
+        ctx.setLineDash([20, 20]); // Dashed border aesthetic
+        ctx.strokeRect(
+            mapBounds.minX,
+            mapBounds.minY,
+            mapBounds.maxX - mapBounds.minX,
+            mapBounds.maxY - mapBounds.minY
+        );
+        ctx.setLineDash([]); // Reset dash for subsequent drawing
+    }
+
+    // DRAW MAP
     ctx.lineWidth = 2;
     ctx.strokeStyle = "#1a1a40"; 
     ctx.lineCap = "round";
-    
     const viewW = canvas.width / cameraZoom;
     const viewH = canvas.height / cameraZoom;
-    const margin = 500; 
-
-    const visibleRoads = network.getRoadsInRect(
-        camX - viewW / 2 - margin,
-        camY - viewH / 2 - margin,
-        camX + viewW / 2 + margin,
-        camY + viewH / 2 + margin
-    );
+    const visibleRoads = network.getRoadsInRect(camX - viewW/2 - 500, camY - viewH/2 - 500, camX + viewW/2 + 500, camY + viewH/2 + 500);
 
     ctx.beginPath();
     for (const road of visibleRoads) {
         ctx.moveTo(road.points[0].x, road.points[0].y);
-        for (let i = 1; i < road.points.length; i++) {
-            ctx.lineTo(road.points[i].x, road.points[i].y);
-        }
+        for (let i = 1; i < road.points.length; i++) ctx.lineTo(road.points[i].x, road.points[i].y);
     }
     ctx.stroke();
 
     const entities = [...bots, player];
 
-    // Draw Entities
     entities.forEach(entity => {
         if (!entity) return;
-
         if (entity.trail.length > 1) {
             ctx.beginPath();
             ctx.strokeStyle = entity.color;
@@ -216,7 +208,6 @@ function loop(currentTime) {
             ctx.stroke();
             ctx.shadowBlur = 0;
         }
-
         ctx.save();
         ctx.translate(entity.x, entity.y);
         ctx.rotate(entity.angle);
@@ -229,27 +220,16 @@ function loop(currentTime) {
         const length = 50;
         const ex = player.x + Math.cos(input.mouseAngle) * length;
         const ey = player.y + Math.sin(input.mouseAngle) * length;
-
         const grad = ctx.createLinearGradient(player.x, player.y, ex, ey);
         grad.addColorStop(0, "rgba(255, 0, 60, 0)");
         grad.addColorStop(1, "rgba(255, 0, 60, 1)");
-
         ctx.beginPath();
         ctx.strokeStyle = grad;
         ctx.lineWidth = 4;
         ctx.moveTo(player.x, player.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
-
-        ctx.beginPath();
-        ctx.fillStyle = "#ff003c";
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "#ff003c";
-        ctx.arc(ex, ey, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0; 
     }
-
     ctx.restore();
 
     // 4. UI / HUD
@@ -258,27 +238,19 @@ function loop(currentTime) {
 
     if (player) {
         drawStreetName();
-
         if (player.crashed) {
             ctx.fillStyle = "rgba(0,0,0,0.7)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
             ctx.fillStyle = "#ff003c";
             ctx.font = "bold 48px Courier New";
             ctx.textAlign = "center";
             ctx.fillText("CRASHED", canvas.width/2, canvas.height/2);
-            
             ctx.font = "24px Courier New";
             ctx.fillStyle = "#fff";
             ctx.fillText(player.crashReason, canvas.width/2, canvas.height/2 + 40);
-            ctx.font = "16px Courier New";
-            ctx.fillText("TAP OR CLICK TO RESTART", canvas.width/2, canvas.height/2 + 80);
         } else {
-            const fps = 60;
-            const currentRealSpeed = player.speed * fps * 3.6; 
-            smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, currentRealSpeed, 0.1);
-
-            ctx.font = "bold 32px Courier New";
+            smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, player.speed * 60 * 3.6, 0.1);
+            ctx.font = "bold 24px Courier New";
             ctx.fillStyle = "#00f3ff";
             ctx.textAlign = "right";
             ctx.fillText(`${Math.floor(smoothSpeedKmh)} KM/H`, canvas.width - 20, canvas.height - 20);
@@ -286,20 +258,68 @@ function loop(currentTime) {
     }
 }
 
-function drawStreetName() {
-    if (!player || player.crashed) return;
+function drawMinimap(entities) {
+    if (!player) return;
 
-    const currentRoad = network.getClosestRoad({ x: player.x, y: player.y });
-    if (currentRoad && currentRoad.properties) {
-        const streetName = currentRoad.properties.name || currentRoad.properties.ref;
-        if (streetName) {
-            ctx.font = "bold 24px Courier New";
+    const isSmallScreen = canvas.width < 600;
+    const mapSize = isSmallScreen ? 150 : 250;
+    const margin = 20;
+    const centerX = margin + mapSize / 2;
+    const centerY = canvas.height - margin - mapSize / 2;
+    const radius = mapSize / 2;
+
+    // Minimap view range in world units
+    const viewRadius = 1500; 
+    const scale = radius / viewRadius;
+
+    ctx.save();
+    
+    // Create circular clip area
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.clip();
+
+    ctx.translate(centerX, centerY);
+    ctx.scale(scale, scale);
+    ctx.translate(-player.x, -player.y);
+
+    entities.forEach(e => {
+        if (!e) return;
+        ctx.beginPath();
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth = 40; 
+        if (e.trail.length > 0) {
+            ctx.moveTo(e.trail[0].x, e.trail[0].y);
+            for (const p of e.trail) ctx.lineTo(p.x, p.y);
+        }
+        ctx.lineTo(e.x, e.y);
+        ctx.stroke();
+
+        if (e === player) {
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, 60, 0, Math.PI * 2); 
+            ctx.fill();
+        }
+    });
+
+    ctx.restore();
+}
+
+function drawStreetName() {
+    const road = network.getClosestRoad({ x: player.x, y: player.y });
+    if (road && road.properties) {
+        const name = road.properties.name || road.properties.ref;
+        if (name) {
+            ctx.font = "bold 22px Courier New";
             ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
             ctx.textAlign = "left";
-            ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-            ctx.shadowBlur = 5;
-            ctx.fillText(streetName, 20, 40);
-            ctx.shadowBlur = 0;
+            ctx.fillText(name, 20, 40);
         }
     }
 }
@@ -308,90 +328,5 @@ function drawBotCount() {
     ctx.font = "bold 24px Courier New";
     ctx.fillStyle = "#ff003c";
     ctx.textAlign = "right";
-    ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-    ctx.shadowBlur = 5;
     ctx.fillText("BOTS: " + bots.length, canvas.width - 20, 40);
-    ctx.shadowBlur = 0;
-}
-
-function drawMinimap(entities) {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    let hasPoints = false;
-
-    entities.forEach(e => {
-        if(!e) return;
-        e.trail.forEach(p => {
-            if(p.x < minX) minX = p.x;
-            if(p.x > maxX) maxX = p.x;
-            if(p.y < minY) minY = p.y;
-            if(p.y > maxY) maxY = p.y;
-            hasPoints = true;
-        });
-        if(e.x < minX) minX = e.x;
-        if(e.x > maxX) maxX = e.x;
-        if(e.y < minY) minY = e.y;
-        if(e.y > maxY) maxY = e.y;
-        hasPoints = true;
-    });
-
-    if (!hasPoints) return;
-
-    const isSmallScreen = canvas.width < 600;
-    const mapSize = isSmallScreen ? 150 : 250;
-    const margin = 20;
-    const mapX = margin;
-    const mapY = canvas.height - mapSize - margin;
-
-    const padding = 100; 
-    const worldWidth = Math.max(100, maxX - minX + padding);
-    const worldHeight = Math.max(100, maxY - minY + padding);
-    const worldCenterX = (minX + maxX) / 2;
-    const worldCenterY = (minY + maxY) / 2;
-
-    const scale = Math.min(mapSize / worldWidth, mapSize / worldHeight);
-
-    ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1;
-    ctx.fillRect(mapX, mapY, mapSize, mapSize);
-    ctx.strokeRect(mapX, mapY, mapSize, mapSize);
-
-    ctx.beginPath();
-    ctx.rect(mapX, mapY, mapSize, mapSize);
-    ctx.clip();
-
-    ctx.translate(mapX + mapSize / 2, mapY + mapSize / 2);
-    ctx.scale(scale, scale);
-    ctx.translate(-worldCenterX, -worldCenterY);
-
-    entities.forEach(e => {
-        if(!e) return;
-        
-        ctx.beginPath();
-        ctx.strokeStyle = e.color;
-        ctx.lineWidth = 60; 
-        
-        if (e.trail.length > 0) {
-            ctx.moveTo(e.trail[0].x, e.trail[0].y);
-            for(const p of e.trail) ctx.lineTo(p.x, p.y);
-        }
-        ctx.lineTo(e.x, e.y);
-        ctx.stroke();
-
-        if (e === player) {
-            ctx.fillStyle = "#fff";
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, 80, 0, Math.PI * 2); 
-            ctx.fill();
-
-            ctx.strokeStyle = "#00f3ff";
-            ctx.lineWidth = 100;
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, 150, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-    });
-
-    ctx.restore();
 }
