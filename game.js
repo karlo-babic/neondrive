@@ -147,7 +147,7 @@ function loop(currentTime) {
     });
 
     // Remove bots that crashed without respawning (e.g. hit player trail)
-    //bots = bots.filter(bot => !bot.crashed);
+    bots = bots.filter(bot => !bot.crashed);
 
     // AUDIO UPDATE
     if (player) {
@@ -310,8 +310,7 @@ function drawBotCount() {
     ctx.textAlign = "right";
     ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
     ctx.shadowBlur = 5;
-    const aliveCount = bots.filter(b => !b.crashed).length;
-    ctx.fillText("BOTS: " + aliveCount, canvas.width - 20, 40);
+    ctx.fillText("BOTS: " + bots.length, canvas.width - 20, 40);
     ctx.shadowBlur = 0;
 }
 
