@@ -14,6 +14,7 @@ window.addEventListener('resize', () => {
 
 const network = new RoadNetwork();
 const input = new InputHandler();
+const sound = new SoundController();
 
 // Game State
 let player = null;
@@ -80,6 +81,9 @@ canvas.addEventListener('touchstart', handleRestart);
 async function initGame(mapUrl, botCount) {
     stopGame();
 
+    // Initialize Audio Context on user gesture (Start Button click)
+    await sound.init();
+
     currentMapUrl = mapUrl;
     currentBotCount = botCount;
     smoothSpeedKmh = 0;
@@ -143,7 +147,12 @@ function loop(currentTime) {
     });
 
     // Remove bots that crashed without respawning (e.g. hit player trail)
-    bots = bots.filter(bot => !bot.crashed);
+    //bots = bots.filter(bot => !bot.crashed);
+
+    // AUDIO UPDATE
+    if (player) {
+        sound.update(player, bots);
+    }
 
     // 2. Camera Logic
     const targetZoom = player ? 3.0 / (1 + (player.speed * 0.3)) : 1;
