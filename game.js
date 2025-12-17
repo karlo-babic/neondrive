@@ -146,7 +146,7 @@ function loop(currentTime) {
     if (player) sound.update(player, bots);
 
     // 2. Camera Logic
-    const targetZoom = player ? 3.0 / (1 + (player.speed * 0.3)) : 1;
+    const targetZoom = player ? canvas.width*0.002 / (1 + (player.speed * 0.3)) : 1;
     cameraZoom = Utils.lerp(cameraZoom, targetZoom, 0.05);
 
     // 3. Render Phase
