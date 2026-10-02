@@ -35,6 +35,11 @@ const FRAME_MIN_TIME = 1000 / FPS_LIMIT;
 let smoothSpeedKmh = 0;
 let mapBounds = null;
 let playerWon = false;
+let roundOver = false;  // Set once per round when the player crashes or wins
+let roundTime = 0;      // Seconds survived this round (game time, not wall clock)
+let roundKills = 0;     // Bots eliminated this round (excluding the one that killed the player)
+let shake = 0;          // Screen shake strength in pixels, decays each frame
+let bestScore = null;   // Best { kills, time } for the current map
 
 let currentMapUrl = 'maps/pula.json';
 let currentBotCount = 0;
@@ -46,6 +51,11 @@ const botInput = document.getElementById('botInput');
 const menuBtn = document.getElementById('menuBtn');
 
 startBtn.addEventListener('click', () => {
+    // Fullscreen hides the browser bars on phones. Only on touch devices: on desktop,
+    // Escape would exit fullscreen instead of opening the menu.
+    if (window.matchMedia('(pointer: coarse)').matches && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    }
     const map = mapInput.value;
     const count = parseInt(botInput.value) || 0;
     menu.style.display = 'none';
@@ -73,6 +83,45 @@ function spawnCars() {
     }
     smoothSpeedKmh = 0;
     playerWon = false;
+    roundOver = false;
+    roundTime = 0;
+    roundKills = 0;
+    shake = 0;
+}
+
+// Best scores are stored per map; storage can be unavailable (private mode etc.)
+function loadBestScore(mapUrl) {
+    try {
+        return JSON.parse(localStorage.getItem('neondrive.best.' + mapUrl)) || { kills: 0, time: 0 };
+    } catch {
+        return { kills: 0, time: 0 };
+    }
+}
+
+function saveBestScore(mapUrl, score) {
+    try {
+        localStorage.setItem('neondrive.best.' + mapUrl, JSON.stringify(score));
+    } catch {}
+}
+
+function endRound() {
+    roundOver = true;
+    bestScore = {
+        kills: Math.max(bestScore.kills, roundKills),
+        time: Math.max(bestScore.time, roundTime),
+    };
+    saveBestScore(currentMapUrl, bestScore);
+
+    if (player.crashed) {
+        shake = 15;
+        if (navigator.vibrate) navigator.vibrate(200);
+    }
+}
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 const handleRestart = (e) => {
@@ -92,6 +141,7 @@ async function initGame(mapUrl, botCount) {
     currentMapUrl = mapUrl;
     currentBotCount = botCount;
     smoothSpeedKmh = 0;
+    bestScore = loadBestScore(mapUrl);
     
     try {
         await network.load(currentMapUrl);
@@ -157,6 +207,7 @@ function loop(currentTime) {
         });
     });
 
+    if (player && !player.crashed) roundKills += bots.filter(bot => bot.crashed).length;
     bots = bots.filter(bot => !bot.crashed);
 
     // Win when every bot has been eliminated (no win condition in free-drive with 0 bots)
@@ -164,6 +215,12 @@ function loop(currentTime) {
         playerWon = true;
         player.speed = 0; // Stop the car (and its engine sound)
     }
+
+    if (player && !roundOver) {
+        if (player.crashed || playerWon) endRound();
+        else roundTime += FRAME_MIN_TIME / 1000;
+    }
+    shake *= 0.9;
 
     if (player) sound.update(player, bots);
 
@@ -181,7 +238,9 @@ function loop(currentTime) {
     if (player) {
         camX = player.x;
         camY = player.y;
-        ctx.translate(screenW / 2, screenH / 2);
+        const shakeX = (Math.random() - 0.5) * 2 * shake;
+        const shakeY = (Math.random() - 0.5) * 2 * shake;
+        ctx.translate(screenW / 2 + shakeX, screenH / 2 + shakeY);
         ctx.scale(cameraZoom, cameraZoom);
         ctx.translate(-player.x, -player.y);
     }
@@ -278,7 +337,7 @@ function loop(currentTime) {
             ctx.font = `24px ${FONT}`;
             ctx.fillStyle = "#fff";
             ctx.fillText(player.crashReason, screenW/2, screenH/2 + 40);
-            drawRestartHint();
+            drawRoundSummary();
         } else if (playerWon) {
             ctx.fillStyle = "rgba(0,0,0,0.7)";
             ctx.fillRect(0, 0, screenW, screenH);
@@ -289,7 +348,7 @@ function loop(currentTime) {
             ctx.font = `24px ${FONT}`;
             ctx.fillStyle = "#fff";
             ctx.fillText("ALL BOTS ELIMINATED", screenW/2, screenH/2 + 40);
-            drawRestartHint();
+            drawRoundSummary();
         } else {
             smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, player.speed * 60 * 3.6, 0.1);
             ctx.font = `bold 24px ${FONT}`;
@@ -300,11 +359,16 @@ function loop(currentTime) {
     }
 }
 
-function drawRestartHint() {
-    ctx.font = `16px ${FONT}`;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+function drawRoundSummary() {
     ctx.textAlign = "center";
-    ctx.fillText("TAP / CLICK TO RESTART", screenW/2, screenH/2 + 90);
+    ctx.font = `bold 18px ${FONT}`;
+    ctx.fillStyle = "#00f3ff";
+    ctx.fillText(`TIME ${formatTime(roundTime)}  ·  BOTS ${roundKills}`, screenW/2, screenH/2 + 85);
+    ctx.font = `16px ${FONT}`;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.fillText(`BEST ${formatTime(bestScore.time)}  ·  BOTS ${bestScore.kills}`, screenW/2, screenH/2 + 112);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    ctx.fillText("TAP / CLICK TO RESTART", screenW/2, screenH/2 + 155);
 }
 
 function drawMinimap(entities) {
