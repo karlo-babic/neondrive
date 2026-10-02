@@ -26,6 +26,7 @@ class Car {
         this.angle = 0;
         
         this.trail = [];
+        this.trailBounds = null; // Bounding box of trail points, for cheap collision rejection
         this.crashed = false;
         this.crashReason = "";
 
@@ -65,6 +66,7 @@ class Car {
         this.x = this.currentRoad.points[0].x;
         this.y = this.currentRoad.points[0].y;
         this.trail = [{ x: this.x, y: this.y }];
+        this.updateTrailBounds();
         this.speed = 0; 
         this.crashed = false;
     }
@@ -102,6 +104,7 @@ class Car {
         if (Utils.dist(lastTrail, {x: this.x, y: this.y}) > 5) {
             this.trail.push({x: this.x, y: this.y});
             if (this.trail.length > this.maxTrailLength) this.trail.shift(); 
+            this.updateTrailBounds();
         }
 
         // 3. Segment End Check
@@ -112,6 +115,17 @@ class Car {
                 this.handleIntersection(input);
             }
         }
+    }
+
+    updateTrailBounds() {
+        const b = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        for (const p of this.trail) {
+            if (p.x < b.minX) b.minX = p.x;
+            if (p.x > b.maxX) b.maxX = p.x;
+            if (p.y < b.minY) b.minY = p.y;
+            if (p.y > b.maxY) b.maxY = p.y;
+        }
+        this.trailBounds = b;
     }
 
     handleIntersection(input) {
@@ -227,9 +241,13 @@ class Car {
 
         // Trail check
         if (otherCar.trail.length < 2) return;
+        const TRAIL_HIT_DIST = 4;
+        const b = otherCar.trailBounds;
+        if (this.x < b.minX - TRAIL_HIT_DIST || this.x > b.maxX + TRAIL_HIT_DIST ||
+            this.y < b.minY - TRAIL_HIT_DIST || this.y > b.maxY + TRAIL_HIT_DIST) return;
         for (let i = 0; i < otherCar.trail.length; i++) {
             const p = otherCar.trail[i];
-            if (p && Utils.dist({x: this.x, y: this.y}, p) < 4) { 
+            if (p && Utils.dist({x: this.x, y: this.y}, p) < TRAIL_HIT_DIST) { 
                 this.crashed = true;
                 this.crashReason = "TRACE COLLISION";
                 if (this.isBot && otherCar.isBot) this.spawn(avoidPoint);

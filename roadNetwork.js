@@ -193,58 +193,6 @@ class RoadNetwork {
         return visibleRoads;
     }
 
-    getClosestRoad(point, searchRadius = 1) {
-        const col = Math.floor(point.x / this.CELL_SIZE);
-        const row = Math.floor(point.y / this.CELL_SIZE);
-        
-        let closestRoad = null;
-        let minDistanceSq = Infinity;
-    
-        // Helper for distance calculation, scoped to this method
-        const distSq = (p1, p2) => (p1.x - p2.x)**2 + (p1.y - p2.y)**2;
-        const distToSegmentSq = (p, v, w) => {
-            const l2 = distSq(v, w);
-            if (l2 === 0) return distSq(p, v);
-            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-            t = Math.max(0, Math.min(1, t));
-            const closestPoint = {
-                x: v.x + t * (w.x - v.x),
-                y: v.y + t * (w.y - v.y)
-            };
-            return distSq(p, closestPoint);
-        };
-    
-        const seenRoads = new Set();
-    
-        // Search in a grid of cells around the point
-        for (let c = col - searchRadius; c <= col + searchRadius; c++) {
-            for (let r = row - searchRadius; r <= row + searchRadius; r++) {
-                const key = `${c},${r}`;
-                const cellRoads = this.grid.get(key);
-                if (cellRoads) {
-                    for (const road of cellRoads) {
-                        if (seenRoads.has(road.id)) continue;
-                        seenRoads.add(road.id);
-    
-                        for (let i = 0; i < road.points.length - 1; i++) {
-                            const dSq = distToSegmentSq(point, road.points[i], road.points[i+1]);
-                            if (dSq < minDistanceSq) {
-                                minDistanceSq = dSq;
-                                closestRoad = road;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Only return a road if the point is reasonably close to it (e.g., within 25 units)
-        if (minDistanceSq < 625) {
-            return closestRoad;
-        }
-        return null;
-    }
-
     getOrCreateNode(key, point) {
         let node = this.nodes.find(n => n.id === key);
         if (!node) {

@@ -30,8 +30,9 @@ let cameraZoom = 1;
 let isGameRunning = false;
 let animationFrameId = null; 
 let lastTime = 0;
-const FPS_LIMIT = 60;
-const FRAME_MIN_TIME = 1000 / FPS_LIMIT;
+const SIM_STEP = 1000 / 60;   // Simulation update interval in ms
+const MAX_FRAME_TIME = 100;   // Longest frame the simulation catches up on
+let accumulator = 0;          // Real time not yet simulated, in ms
 let smoothSpeedKmh = 0;
 let mapBounds = null;
 let playerWon = false;
@@ -215,6 +216,7 @@ async function initGame(mapUrl, botCount) {
     isGameRunning = true;
     menuBtn.style.display = 'block';
     lastTime = performance.now();
+    accumulator = 0;
     loop(lastTime);
 }
 
@@ -230,16 +232,31 @@ function loop(currentTime) {
     animationFrameId = requestAnimationFrame(loop);
     if (!isGameRunning) return;
 
-    const deltaTime = currentTime - lastTime;
-    // 1ms tolerance: on 60Hz screens frames arrive every ~16.6ms with jitter,
-    // and a strict check would skip some of them, halving the frame rate.
-    if (deltaTime < FRAME_MIN_TIME - 1) return;
+    // Fixed timestep: the simulation always advances SIM_STEP ms per update, and runs as
+    // many updates as real time requires. This keeps game speed independent of the frame
+    // rate (slow phones, battery saver, 120Hz screens). The clamp avoids a burst of
+    // catch-up updates after the tab was in the background.
+    accumulator += Math.min(currentTime - lastTime, MAX_FRAME_TIME);
+    lastTime = currentTime;
 
-    lastTime = currentTime - (deltaTime % FRAME_MIN_TIME);
-    
+    // 1ms tolerance: on 60Hz screens frames arrive every ~16.6ms with jitter, and a strict
+    // check would alternate between 0 and 2 updates per frame. The debt carries over.
+    let updated = false;
+    while (accumulator >= SIM_STEP - 1) {
+        update();
+        accumulator -= SIM_STEP;
+        updated = true;
+    }
+    // Nothing changed since the last frame (e.g. every other frame on 120Hz screens)
+    if (!updated) return;
+
+    if (player) sound.update(player, bots);
+    render();
+}
+
+function update() {
     const playerPos = player ? { x: player.x, y: player.y } : null;
 
-    // 1. Update Phase
     if (player && !playerWon) {
         player.update(input);
         bots.forEach(bot => player.checkCollision(bot, playerPos));
@@ -264,17 +281,17 @@ function loop(currentTime) {
 
     if (player && !roundOver) {
         if (player.crashed || playerWon) endRound();
-        else roundTime += FRAME_MIN_TIME / 1000;
+        else roundTime += SIM_STEP / 1000;
     }
     shake *= 0.9;
 
-    if (player) sound.update(player, bots);
-
-    // 2. Camera Logic
     const targetZoom = player ? screenW*0.002 / (1 + (player.speed * 0.3)) : 1;
     cameraZoom = Utils.lerp(cameraZoom, targetZoom, 0.05);
+    if (player) smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, player.speed * 60 * 3.6, 0.1);
+}
 
-    // 3. Render Phase
+function render() {
+    // Background
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#0d0221";
     ctx.fillRect(0, 0, screenW, screenH);
@@ -396,7 +413,6 @@ function loop(currentTime) {
             ctx.fillText("ALL BOTS ELIMINATED", screenW/2, screenH/2 + 40);
             drawRoundSummary();
         } else {
-            smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, player.speed * 60 * 3.6, 0.1);
             ctx.font = `bold 24px ${FONT}`;
             ctx.fillStyle = "#00f3ff";
             ctx.textAlign = "right";
@@ -471,7 +487,7 @@ function drawMinimap(entities) {
 }
 
 function drawStreetName() {
-    const road = network.getClosestRoad({ x: player.x, y: player.y });
+    const road = player.currentRoad;
     if (road && road.properties) {
         const name = road.properties.name || road.properties.ref;
         if (name) {
