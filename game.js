@@ -3,13 +3,21 @@
  */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// Screen size in CSS pixels; the canvas backing store is scaled by devicePixelRatio
+// (capped at 2 for performance) so lines stay sharp on HiDPI/phone screens.
+let screenW = 0, screenH = 0, dpr = 1;
 
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-});
+function resizeCanvas() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    screenW = window.innerWidth;
+    screenH = window.innerHeight;
+    canvas.width = Math.round(screenW * dpr);
+    canvas.height = Math.round(screenH * dpr);
+    canvas.style.width = screenW + 'px';
+    canvas.style.height = screenH + 'px';
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 const network = new RoadNetwork();
 const input = new InputHandler();
@@ -146,19 +154,20 @@ function loop(currentTime) {
     if (player) sound.update(player, bots);
 
     // 2. Camera Logic
-    const targetZoom = player ? canvas.width*0.002 / (1 + (player.speed * 0.3)) : 1;
+    const targetZoom = player ? screenW*0.002 / (1 + (player.speed * 0.3)) : 1;
     cameraZoom = Utils.lerp(cameraZoom, targetZoom, 0.05);
 
     // 3. Render Phase
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#0d0221";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, screenW, screenH);
 
     ctx.save();
     let camX = 0, camY = 0;
     if (player) {
         camX = player.x;
         camY = player.y;
-        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.translate(screenW / 2, screenH / 2);
         ctx.scale(cameraZoom, cameraZoom);
         ctx.translate(-player.x, -player.y);
     }
@@ -181,8 +190,8 @@ function loop(currentTime) {
     ctx.lineWidth = Math.max(2, 2.5 / cameraZoom); // At least ~2.5px on screen
     ctx.strokeStyle = "#3d2f7a";
     ctx.lineCap = "round";
-    const viewW = canvas.width / cameraZoom;
-    const viewH = canvas.height / cameraZoom;
+    const viewW = screenW / cameraZoom;
+    const viewH = screenH / cameraZoom;
     const visibleRoads = network.getRoadsInRect(camX - viewW/2 - 500, camY - viewH/2 - 500, camX + viewW/2 + 500, camY + viewH/2 + 500);
 
     ctx.beginPath();
@@ -199,18 +208,25 @@ function loop(currentTime) {
         if (entity.trail.length > 1) {
             ctx.beginPath();
             ctx.strokeStyle = entity.color;
-            ctx.lineWidth = 4;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = entity.color;
             ctx.moveTo(entity.trail[0].x, entity.trail[0].y);
             for (const p of entity.trail) ctx.lineTo(p.x, p.y);
             ctx.lineTo(entity.x, entity.y);
+            // Fake glow: wide faint stroke under a thin bright one (much cheaper than shadowBlur)
+            ctx.globalAlpha = 0.25;
+            ctx.lineWidth = 12;
             ctx.stroke();
-            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = 4;
+            ctx.stroke();
         }
         ctx.save();
         ctx.translate(entity.x, entity.y);
         ctx.rotate(entity.angle);
+        // Colored halo so cars stand out on small screens
+        ctx.fillStyle = entity.color;
+        ctx.globalAlpha = 0.35;
+        ctx.fillRect(-9, -5.5, 18, 11);
+        ctx.globalAlpha = 1;
         ctx.fillStyle = "#fff";
         ctx.fillRect(-5, -2.5, 10, 5);
         ctx.restore();
@@ -240,20 +256,20 @@ function loop(currentTime) {
         drawStreetName();
         if (player.crashed) {
             ctx.fillStyle = "rgba(0,0,0,0.7)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, screenW, screenH);
             ctx.fillStyle = "#ff003c";
             ctx.font = "bold 48px Courier New";
             ctx.textAlign = "center";
-            ctx.fillText("CRASHED", canvas.width/2, canvas.height/2);
+            ctx.fillText("CRASHED", screenW/2, screenH/2);
             ctx.font = "24px Courier New";
             ctx.fillStyle = "#fff";
-            ctx.fillText(player.crashReason, canvas.width/2, canvas.height/2 + 40);
+            ctx.fillText(player.crashReason, screenW/2, screenH/2 + 40);
         } else {
             smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, player.speed * 60 * 3.6, 0.1);
             ctx.font = "bold 24px Courier New";
             ctx.fillStyle = "#00f3ff";
             ctx.textAlign = "right";
-            ctx.fillText(`${Math.floor(smoothSpeedKmh)} KM/H`, canvas.width - 20, canvas.height - 20);
+            ctx.fillText(`${Math.floor(smoothSpeedKmh)} KM/H`, screenW - 20, screenH - 20);
         }
     }
 }
@@ -261,11 +277,11 @@ function loop(currentTime) {
 function drawMinimap(entities) {
     if (!player) return;
 
-    const isSmallScreen = canvas.width < 600;
+    const isSmallScreen = screenW < 600;
     const mapSize = isSmallScreen ? 150 : 250;
     const margin = 20;
     const centerX = margin + mapSize / 2;
-    const centerY = canvas.height - margin - mapSize / 2;
+    const centerY = screenH - margin - mapSize / 2;
     const radius = mapSize / 2;
 
     // Minimap view range in world units
@@ -328,5 +344,5 @@ function drawBotCount() {
     ctx.font = "bold 24px Courier New";
     ctx.fillStyle = "#ff003c";
     ctx.textAlign = "right";
-    ctx.fillText("BOTS: " + bots.length, canvas.width - 20, 40);
+    ctx.fillText("BOTS: " + bots.length, screenW - 20, 40);
 }
