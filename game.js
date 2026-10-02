@@ -150,7 +150,7 @@ function loop(currentTime) {
     cameraZoom = Utils.lerp(cameraZoom, targetZoom, 0.05);
 
     // 3. Render Phase
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = "#0d0221";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
@@ -165,7 +165,7 @@ function loop(currentTime) {
 
     // DRAW MAP BOUNDARIES
     if (mapBounds) {
-        ctx.strokeStyle = "#ff003c";
+        ctx.strokeStyle = "#b026ff";
         ctx.lineWidth = 10 / cameraZoom; // Keep line width consistent visually
         ctx.setLineDash([20, 20]); // Dashed border aesthetic
         ctx.strokeRect(
@@ -178,8 +178,8 @@ function loop(currentTime) {
     }
 
     // DRAW MAP
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#1a1a40"; 
+    ctx.lineWidth = Math.max(2, 2.5 / cameraZoom); // At least ~2.5px on screen
+    ctx.strokeStyle = "#3d2f7a";
     ctx.lineCap = "round";
     const viewW = canvas.width / cameraZoom;
     const viewH = canvas.height / cameraZoom;
@@ -277,7 +277,7 @@ function drawMinimap(entities) {
     // Create circular clip area
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 2;
