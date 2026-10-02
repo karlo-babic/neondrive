@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon Drive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #0d0221;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Orbitron', 'Courier New', monospace;
             color: #fff;
         }
         canvas { display: block; }
@@ -27,7 +30,7 @@
         }
 
         h1 {
-            font-size: 4rem;
+            font-size: min(4rem, 10vw); /* Orbitron is wide; keep the title on one line on phones */
             text-shadow: 0 0 20px #ff003c, 4px 4px 0px #00f3ff;
             margin-bottom: 40px;
             letter-spacing: 5px;

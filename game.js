@@ -3,6 +3,7 @@
  */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const FONT = "'Orbitron', 'Courier New', monospace";
 // Screen size in CSS pixels; the canvas backing store is scaled by devicePixelRatio
 // (capped at 2 for performance) so lines stay sharp on HiDPI/phone screens.
 let screenW = 0, screenH = 0, dpr = 1;
@@ -258,15 +259,15 @@ function loop(currentTime) {
             ctx.fillStyle = "rgba(0,0,0,0.7)";
             ctx.fillRect(0, 0, screenW, screenH);
             ctx.fillStyle = "#ff003c";
-            ctx.font = "bold 48px Courier New";
+            ctx.font = `bold 48px ${FONT}`;
             ctx.textAlign = "center";
             ctx.fillText("CRASHED", screenW/2, screenH/2);
-            ctx.font = "24px Courier New";
+            ctx.font = `24px ${FONT}`;
             ctx.fillStyle = "#fff";
             ctx.fillText(player.crashReason, screenW/2, screenH/2 + 40);
         } else {
             smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, player.speed * 60 * 3.6, 0.1);
-            ctx.font = "bold 24px Courier New";
+            ctx.font = `bold 24px ${FONT}`;
             ctx.fillStyle = "#00f3ff";
             ctx.textAlign = "right";
             ctx.fillText(`${Math.floor(smoothSpeedKmh)} KM/H`, screenW - 20, screenH - 20);
@@ -332,7 +333,7 @@ function drawStreetName() {
     if (road && road.properties) {
         const name = road.properties.name || road.properties.ref;
         if (name) {
-            ctx.font = "bold 20px Courier New";
+            ctx.font = `bold 20px ${FONT}`;
             ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
             ctx.textAlign = "left";
             ctx.fillText(name, 20, 40);
@@ -341,7 +342,7 @@ function drawStreetName() {
 }
 
 function drawBotCount() {
-    ctx.font = "bold 24px Courier New";
+    ctx.font = `bold 24px ${FONT}`;
     ctx.fillStyle = "#ff003c";
     ctx.textAlign = "right";
     ctx.fillText("BOTS: " + bots.length, screenW - 20, 40);
