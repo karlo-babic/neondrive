@@ -25,14 +25,17 @@ class RoadNetwork {
         this.roads = [];
         this.grid = new Map();
 
+        const ways = this.extractWays(json);
+        if (ways.length === 0) throw new Error('No roads found in map data');
+
         // 1. Project Coordinates & Count Occurrences
         const pointCounts = new Map(); 
-        const project = this.createProjection(json);
+        const project = this.createProjection(ways);
         const getKey = (p) => `${Math.round(p.x)},${Math.round(p.y)}`;
 
         // Pass 1: Count intersections
-        json.features.forEach(f => {
-            f.geometry.coordinates.forEach(c => {
+        ways.forEach(f => {
+            f.coordinates.forEach(c => {
                 const p = project(c[0], c[1]);
                 const key = getKey(p);
                 pointCounts.set(key, (pointCounts.get(key) || 0) + 1);
@@ -40,8 +43,8 @@ class RoadNetwork {
         });
 
         // Pass 2: Split Ways into Segments at intersections
-        json.features.forEach(f => {
-            const coords = f.geometry.coordinates;
+        ways.forEach(f => {
+            const coords = f.coordinates;
             let currentSegmentPoints = [];
             
             for (let i = 0; i < coords.length; i++) {
@@ -73,10 +76,29 @@ class RoadNetwork {
         console.log(`Graph Built: ${this.nodes.length} Nodes, ${this.roads.length} Segments.`);
     }
 
-    createProjection(json) {
-        const bounds = { minLon: Infinity, maxLon: -Infinity, minLat: Infinity, maxLat: -Infinity };
+    // Flattens GeoJSON features into lines of [lon, lat] coordinates.
+    // Points are skipped; polygon rings (closed ways, e.g. roundabouts) are treated as lines.
+    extractWays(json) {
+        if (!json || !Array.isArray(json.features)) throw new Error('Not a GeoJSON FeatureCollection');
+        const ways = [];
         json.features.forEach(f => {
-            f.geometry.coordinates.forEach(c => {
+            const g = f && f.geometry;
+            if (!g) return;
+            let lines = [];
+            if (g.type === 'LineString') lines = [g.coordinates];
+            else if (g.type === 'MultiLineString' || g.type === 'Polygon') lines = g.coordinates;
+            else if (g.type === 'MultiPolygon') lines = g.coordinates.flat();
+            lines.forEach(coordinates => {
+                if (coordinates.length > 1) ways.push({ coordinates, properties: f.properties });
+            });
+        });
+        return ways;
+    }
+
+    createProjection(ways) {
+        const bounds = { minLon: Infinity, maxLon: -Infinity, minLat: Infinity, maxLat: -Infinity };
+        ways.forEach(f => {
+            f.coordinates.forEach(c => {
                 if (c[0] < bounds.minLon) bounds.minLon = c[0];
                 if (c[0] > bounds.maxLon) bounds.maxLon = c[0];
                 if (c[1] < bounds.minLat) bounds.minLat = c[1];

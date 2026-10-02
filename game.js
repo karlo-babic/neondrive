@@ -49,6 +49,48 @@ const startBtn = document.getElementById('startBtn');
 const mapInput = document.getElementById('mapInput');
 const botInput = document.getElementById('botInput');
 const menuBtn = document.getElementById('menuBtn');
+const mapFileInput = document.getElementById('mapFileInput');
+
+// Map loaded from a local GeoJSON file: { key, json }. Its key ('file:<name>')
+// is used as the select value and for storing best scores.
+let customMap = null;
+let lastMapValue = mapInput.value;
+
+mapInput.addEventListener('change', () => {
+    if (mapInput.value !== 'load-file') {
+        lastMapValue = mapInput.value;
+        return;
+    }
+    // Keep the previous selection until a file is actually loaded (the picker may be cancelled)
+    mapInput.value = lastMapValue;
+    mapFileInput.value = '';
+    mapFileInput.click();
+});
+
+mapFileInput.addEventListener('change', async () => {
+    const file = mapFileInput.files[0];
+    if (!file) return;
+    let json;
+    try {
+        json = JSON.parse(await file.text());
+        new RoadNetwork().parse(json); // Validate before accepting
+    } catch (err) {
+        console.error(err);
+        alert('Could not load map file. Expected a GeoJSON export of roads (e.g. from overpass-turbo).');
+        return;
+    }
+    customMap = { key: 'file:' + file.name, json };
+
+    let option = mapInput.querySelector('option[data-custom]');
+    if (!option) {
+        option = document.createElement('option');
+        option.dataset.custom = '';
+        mapInput.insertBefore(option, mapInput.querySelector('option[value="load-file"]'));
+    }
+    option.value = customMap.key;
+    option.textContent = file.name.replace(/\.(geo)?json$/i, '');
+    mapInput.value = lastMapValue = customMap.key;
+});
 
 startBtn.addEventListener('click', () => {
     // Fullscreen hides the browser bars on phones. Only on touch devices: on desktop,
@@ -144,7 +186,11 @@ async function initGame(mapUrl, botCount) {
     bestScore = loadBestScore(mapUrl);
     
     try {
-        await network.load(currentMapUrl);
+        if (customMap && mapUrl === customMap.key) {
+            network.parse(customMap.json);
+        } else {
+            await network.load(currentMapUrl);
+        }
         
         // Calculate map boundaries based on all road points
         mapBounds = network.roads.reduce((acc, road) => {
