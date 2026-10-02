@@ -109,11 +109,24 @@
             box-shadow: 0 0 30px #ff003c;
             text-shadow: none;
         }
+
+        /* In-game button to return to the menu (needed on touch devices without Escape) */
+        #menuBtn {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            margin: 0;
+            padding: 6px 14px;
+            font-size: 0.9rem;
+            z-index: 5;
+        }
     </style>
 </head>
 <body>
     <!-- Game Canvas -->
     <canvas id="gameCanvas"></canvas>
+    <button id="menuBtn">MENU</button>
 
     <!-- Main Menu -->
     <div id="menu">

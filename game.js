@@ -34,6 +34,7 @@ const FPS_LIMIT = 60;
 const FRAME_MIN_TIME = 1000 / FPS_LIMIT;
 let smoothSpeedKmh = 0;
 let mapBounds = null;
+let playerWon = false;
 
 let currentMapUrl = 'maps/pula.json';
 let currentBotCount = 0;
@@ -42,6 +43,7 @@ const menu = document.getElementById('menu');
 const startBtn = document.getElementById('startBtn');
 const mapInput = document.getElementById('mapInput');
 const botInput = document.getElementById('botInput');
+const menuBtn = document.getElementById('menuBtn');
 
 startBtn.addEventListener('click', () => {
     const map = mapInput.value;
@@ -50,26 +52,34 @@ startBtn.addEventListener('click', () => {
     initGame(map, count);
 });
 
+function showMenu() {
+    stopGame();
+    menuBtn.style.display = 'none';
+    menu.style.display = 'flex';
+}
+
+menuBtn.addEventListener('click', showMenu);
+
 window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && isGameRunning) {
-        stopGame();
-        menu.style.display = 'flex';
-    }
+    if (e.code === 'Escape' && isGameRunning) showMenu();
 });
+
+function spawnCars() {
+    player = new Car(network, false);
+    const playerPos = { x: player.x, y: player.y };
+    bots = [];
+    for (let i = 0; i < currentBotCount; i++) {
+        bots.push(new Car(network, true, playerPos));
+    }
+    smoothSpeedKmh = 0;
+    playerWon = false;
+}
 
 const handleRestart = (e) => {
     if (!isGameRunning) return;
     if (e.type === 'mousedown' && e.button !== 0) return;
 
-    if (player && player.crashed) {
-        player = new Car(network, false);
-        const playerPos = { x: player.x, y: player.y };
-        bots = [];
-        for (let i = 0; i < currentBotCount; i++) {
-            bots.push(new Car(network, true, playerPos));
-        }
-        smoothSpeedKmh = 0;
-    }
+    if (player && (player.crashed || playerWon)) spawnCars();
 };
 
 canvas.addEventListener('mousedown', handleRestart);
@@ -104,15 +114,10 @@ async function initGame(mapUrl, botCount) {
         return;
     }
 
-    player = new Car(network, false);
-    const playerPos = { x: player.x, y: player.y };
-    
-    bots = [];
-    for (let i = 0; i < currentBotCount; i++) {
-        bots.push(new Car(network, true, playerPos));
-    }
+    spawnCars();
 
     isGameRunning = true;
+    menuBtn.style.display = 'block';
     lastTime = performance.now();
     loop(lastTime);
 }
@@ -130,14 +135,16 @@ function loop(currentTime) {
     if (!isGameRunning) return;
 
     const deltaTime = currentTime - lastTime;
-    if (deltaTime < FRAME_MIN_TIME) return;
+    // 1ms tolerance: on 60Hz screens frames arrive every ~16.6ms with jitter,
+    // and a strict check would skip some of them, halving the frame rate.
+    if (deltaTime < FRAME_MIN_TIME - 1) return;
 
     lastTime = currentTime - (deltaTime % FRAME_MIN_TIME);
     
     const playerPos = player ? { x: player.x, y: player.y } : null;
 
     // 1. Update Phase
-    if (player) {
+    if (player && !playerWon) {
         player.update(input);
         bots.forEach(bot => player.checkCollision(bot, playerPos));
     }
@@ -151,6 +158,12 @@ function loop(currentTime) {
     });
 
     bots = bots.filter(bot => !bot.crashed);
+
+    // Win when every bot has been eliminated (no win condition in free-drive with 0 bots)
+    if (player && !player.crashed && currentBotCount > 0 && bots.length === 0 && !playerWon) {
+        playerWon = true;
+        player.speed = 0; // Stop the car (and its engine sound)
+    }
 
     if (player) sound.update(player, bots);
 
@@ -265,6 +278,18 @@ function loop(currentTime) {
             ctx.font = `24px ${FONT}`;
             ctx.fillStyle = "#fff";
             ctx.fillText(player.crashReason, screenW/2, screenH/2 + 40);
+            drawRestartHint();
+        } else if (playerWon) {
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillRect(0, 0, screenW, screenH);
+            ctx.fillStyle = "#00f3ff";
+            ctx.font = `bold 48px ${FONT}`;
+            ctx.textAlign = "center";
+            ctx.fillText("YOU WIN", screenW/2, screenH/2);
+            ctx.font = `24px ${FONT}`;
+            ctx.fillStyle = "#fff";
+            ctx.fillText("ALL BOTS ELIMINATED", screenW/2, screenH/2 + 40);
+            drawRestartHint();
         } else {
             smoothSpeedKmh = Utils.lerp(smoothSpeedKmh, player.speed * 60 * 3.6, 0.1);
             ctx.font = `bold 24px ${FONT}`;
@@ -273,6 +298,13 @@ function loop(currentTime) {
             ctx.fillText(`${Math.floor(smoothSpeedKmh)} KM/H`, screenW - 20, screenH - 20);
         }
     }
+}
+
+function drawRestartHint() {
+    ctx.font = `16px ${FONT}`;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    ctx.textAlign = "center";
+    ctx.fillText("TAP / CLICK TO RESTART", screenW/2, screenH/2 + 90);
 }
 
 function drawMinimap(entities) {
